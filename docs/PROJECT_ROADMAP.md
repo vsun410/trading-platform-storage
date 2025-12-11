@@ -16,7 +16,7 @@
 trading-platform/
 ├── storage    → 데이터 수집 & 저장 (PostgreSQL + Supabase)
 ├── research   → 전략 개발 & 백테스트
-├── order      → 실거래 실행 + 운영 대시보드
+├── order      → 실거래 실행 + 운영 인터페이스
 └── portfolio  → 성과 분석 & Paper Trading
 ```
 
@@ -40,10 +40,11 @@ trading-platform/
 │      └── 김프 계산 & 신호 생성                                   │
 │      └── 기본 백테스트                                          │
 │                                                                 │
-│   3️⃣ Order (실거래 + 운영 대시보드)                             │
+│   3️⃣ Order (실거래 + 운영 인터페이스)                           │
 │      └── 업비트/바이낸스 동시 주문                               │
 │      └── 95% 자본 투입, 손실 청산 금지                          │
-│      └── 🆕 비상정지 + 실시간 모니터링 대시보드                  │
+│      └── 🖥️ PC: Streamlit 대시보드 (로컬)                       │
+│      └── 📱 모바일: Telegram Bot (비상정지 + 알림)              │
 │                                                                 │
 │   4️⃣ Research 확장                                              │
 │      └── Orderbook 기반 시뮬레이션                              │
@@ -132,12 +133,13 @@ ELSE:
 
 ---
 
-## 📅 Phase 3: Order - 실거래 + 운영 대시보드 (2주)
+## 📅 Phase 3: Order - 실거래 + 운영 인터페이스 (2주)
 
 ### 목표
 - 업비트/바이낸스 동시 주문 실행
 - 95% 자본 투입, 손실 청산 금지 로직
-- **🆕 비상정지 + 실시간 모니터링 대시보드**
+- **PC: Streamlit 대시보드 (로컬)**
+- **📱 모바일: Telegram Bot (비상정지 + 알림)**
 
 ### 작업 항목
 
@@ -146,11 +148,12 @@ ELSE:
 | 5주차 | 거래소 API 연동 | UpbitExchange, BinanceExchange | ⬜ |
 | 5주차 | 주문 실행기 | OrderExecutor (동시 실행) | ⬜ |
 | 5주차 | 청산 검증기 | ExitValidator (순이익 체크) | ⬜ |
-| 5주차 | 🆕 비상정지 백엔드 | EmergencyStop (Redis 기반) | ⬜ |
+| 5주차 | 비상정지 백엔드 | EmergencyStop (Redis, PC/모바일 공유) | ⬜ |
+| 5주차 | 📱 Telegram Bot | 비상정지 + 상태 확인 + 푸시 알림 | ⬜ |
 | 6주차 | 자본 배분 | CapitalAllocator (95% 투입) | ⬜ |
 | 6주차 | 중복 방지 | 멱등성 키, 신호 ID 추적 | ⬜ |
-| 6주차 | Discord 알림 | 체결/에러/비상정지 알림 | ⬜ |
-| 6주차 | 🆕 운영 대시보드 | Streamlit UI (비상정지 + 모니터링) | ⬜ |
+| 6주차 | 🖥️ Streamlit 대시보드 | PC용 상세 모니터링 (로컬 실행) | ⬜ |
+| 6주차 | Docker 통합 | docker-compose (전체 서비스) | ⬜ |
 
 ### 자본 운용 규칙 (확정)
 
@@ -161,39 +164,58 @@ ELSE:
 | 청산 조건 | `순이익 > 0` 일 때만 |
 | 손실 청산 | 🚫 금지 |
 
-### 🆕 운영 대시보드 핵심 기능
+### 운영 인터페이스 (PC + 모바일 분리)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Order 운영 대시보드                           │
+│                    운영 인터페이스 구조                           │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  🚨 비상정지 (P0 최우선)                                        │
-│     • 버튼 클릭 → 확인 → 신규 진입 즉시 차단                    │
-│     • 기존 포지션 유지 (손실 청산 금지 원칙)                     │
-│     • Discord 긴급 알림 발송                                    │
+│   🖥️ PC: Streamlit                📱 모바일: Telegram Bot       │
+│   ─────────────────────           ──────────────────────        │
+│   localhost:8501                  @YourTradingBot               │
 │                                                                 │
-│  📊 실시간 모니터링                                             │
-│     • 포지션 현황 (업비트/바이낸스)                              │
-│     • 김프율 + 1시간 차트                                       │
-│     • 순이익 계산 (청산 가능 여부 표시)                          │
-│     • 시스템 상태 (API 연결, 에러 현황)                         │
-│     • 최근 거래 이력                                            │
+│   • 상세 모니터링                 • 🚨 비상정지 (핵심)           │
+│   • 김프 차트                     • 상태 요약                    │
+│   • 거래 이력                     • 푸시 알림                    │
+│   • 시스템 상태                   • 어디서나 접근                │
 │                                                                 │
-│  ⚙️ 기술 스택                                                   │
-│     • Streamlit (빠른 개발, 실시간 업데이트)                    │
-│     • Redis (비상정지 플래그)                                    │
-│     • Docker (Order 서비스와 동일 네트워크)                     │
+│   ❌ 클라우드 배포 안함           ✅ Telegram 서버 활용 (무료)   │
+│   ✅ 로컬 Docker 실행             ✅ 인터넷만 되면 OK            │
+│                                                                 │
+│   ──────────────────────────────────────────────────────────   │
+│                 공통 백엔드: Redis 비상정지 플래그               │
+│   ──────────────────────────────────────────────────────────   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+### Telegram Bot 명령어
+
+| 명령어 | 기능 |
+|--------|------|
+| `/stop` | 🚨 비상정지 (신규 진입 차단) |
+| `/resume` | 🟢 시스템 재개 |
+| `/status` | 📊 현재 상태 요약 |
+| `/position` | 📋 포지션 상세 |
+| `/kimp` | 📈 김프율 조회 |
+| `/pnl` | 💰 손익 현황 |
+
+### Telegram 푸시 알림
+
+| 이벤트 | 알림 |
+|--------|------|
+| 포지션 진입 | "📈 포지션 진입 - 김프 3.5%, 0.5 BTC" |
+| 포지션 청산 | "📉 포지션 청산 - 순이익 +1.2%" |
+| 비상정지 | "🚨 비상정지 활성화" |
+| API 에러 | "⚠️ 업비트 API 에러 3회 연속" |
 
 ### 완료 조건
 - [ ] 바이낸스 테스트넷에서 주문 성공
 - [ ] 업비트 Test Order API 검증 통과
 - [ ] 동시 주문 지연 < 500ms
-- [ ] 🆕 비상정지 버튼 동작 확인
-- [ ] 🆕 대시보드 실시간 업데이트 (1초)
+- [ ] Telegram 비상정지 동작 확인
+- [ ] Streamlit 대시보드 실시간 업데이트
 
 ---
 
@@ -252,29 +274,6 @@ STRESS_SCENARIOS = {
 | 11주차 | Paper Trading | VirtualExchange (업비트 대체) | ⬜ |
 | 11주차 | 분석 리포트 | 일별/주별/월별 성과 리포트 | ⬜ |
 
-### Paper Trading 엔진 (고급)
-
-```python
-# 실시간 호가 기반 매칭
-class VirtualExchange:
-    """업비트 테스트넷 대체"""
-    
-    def execute_market_order(self, side, quantity):
-        # 1. 실시간 호가창 조회
-        orderbook = self.get_live_orderbook()
-        
-        # 2. VWAP 슬리피지 적용
-        execution_price = self.slippage_model.calculate(orderbook, quantity)
-        
-        # 3. 부분 체결 시뮬레이션
-        filled_qty = self._simulate_partial_fill(quantity)
-        
-        # 4. 가상 잔고 업데이트
-        self.balance_manager.update(side, filled_qty, execution_price)
-        
-        return Fill(price=execution_price, quantity=filled_qty)
-```
-
 ### 완료 조건
 - [ ] Paper Trading 1주일 무중단 실행
 - [ ] 실거래 대비 오차 < 5%
@@ -289,14 +288,15 @@ class VirtualExchange:
 ─────────────────────────────────────────────────────────────────
 Week 1-2   │████████│ Phase 1: Storage (데이터 수집)
 Week 3-4   │        │████████│ Phase 2: Research (김프 전략)
-Week 5-6   │        │        │████████│ Phase 3: Order (실거래+대시보드)
+Week 5-6   │        │        │████████│ Phase 3: Order (실거래+인터페이스)
 Week 7-9   │        │        │        │████████████│ Phase 4: Research 확장
 Week 10-11 │        │        │        │            │████████│ Phase 5: Portfolio
 ─────────────────────────────────────────────────────────────────
            │        │        │        │            │        │
            ▼        ▼        ▼        ▼            ▼        ▼
         데이터    전략     실거래   스트레스     분석    완성
-        수집     검증     +대시보드  테스트     리포트
+        수집     검증    +Telegram  테스트     리포트
+                        +Dashboard
 ```
 
 ### 마일스톤
@@ -305,7 +305,7 @@ Week 10-11 │        │        │        │            │██████
 |----------|--------|------|
 | **M1: 데이터 파이프라인** | 2주차 | 24/7 수집 동작 |
 | **M2: 전략 백테스트** | 4주차 | Sharpe > 1.0 |
-| **M3: 실거래 준비** | 6주차 | 테스트넷 주문 + 대시보드 |
+| **M3: 실거래 준비** | 6주차 | 테스트넷 주문 + Telegram + Dashboard |
 | **M4: 스트레스 테스트** | 9주차 | 모든 시나리오 통과 |
 | **M5: 운영 준비** | 11주차 | Paper Trading 검증 |
 
@@ -320,9 +320,10 @@ Week 10-11 │        │        │        │            │██████
 | **캐시** | Redis (비상정지 플래그) |
 | **컨테이너** | Docker, docker-compose |
 | **데이터 수집** | CCXT, WebSocket |
-| **백테스트** | 자체 엔진 (vectorbt 참고) |
-| **알림** | Discord Webhook |
-| **대시보드** | Streamlit |
+| **백테스트** | 자체 엔진 |
+| **PC 대시보드** | Streamlit (로컬) |
+| **모바일** | Telegram Bot |
+| **알림** | Telegram + Discord |
 
 ---
 
@@ -335,7 +336,7 @@ Week 10-11 │        │        │        │            │██████
 | **research** | `docs/DETAILED_SPEC.md` - 전략 명세 |
 | **order** | `docs/DETAILED_SPEC.md` - 실행 시스템 명세 |
 | **order** | `docs/RISK_MANAGEMENT.md` - 자본 운용 전략 |
-| **order** | 🆕 `docs/DASHBOARD_SPEC.md` - 운영 대시보드 명세 |
+| **order** | `docs/DASHBOARD_SPEC.md` - 운영 인터페이스 (PC + Telegram) |
 | **portfolio** | `docs/DETAILED_SPEC.md` - 분석 명세 |
 
 ---
@@ -347,7 +348,7 @@ Week 10-11 │        │        │        │            │██████
 - [x] 디자인 시스템 (Kinetic Minimalism) 정의
 - [x] Order 레포 리스크 관리 전략 수정 (95% 투입, 손실 청산 금지)
 - [x] Storage 데이터 수집 명세서 작성
-- [x] 🆕 Order 운영 대시보드 명세서 작성
+- [x] Order 운영 인터페이스 명세서 작성 (PC + Telegram Bot)
 
 ---
 
