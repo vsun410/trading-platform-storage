@@ -7,6 +7,74 @@
 
 ---
 
+## [3.0.0] - 2025-12-14
+
+### 🎯 핵심 변경: Ver 3.0 전략 지원 - 환율 필터 + Breakout Rescue
+
+김치프리미엄 전략 Ver 3.0의 새로운 기능들을 지원하기 위한 DB 스키마 및 데이터 수집 체계를 업데이트했습니다.
+
+### Added (추가)
+
+#### 신규 테이블
+- **fx_rates** - TradingView 환율 데이터 저장
+  - FX_IDC:USDKRW 심볼 기본값
+  - 12시간 이동평균 (ma_12h) 컬럼
+  - TradingView 데이터 소스 메타데이터
+
+- **fx_filter_log** - 환율 필터 상태 로그
+  - 현재 환율, MA, threshold 기록
+  - is_blocked (진입 차단 여부) 플래그
+  - surge_pct (급등률) 기록
+
+- **bb_log** - 볼린저 밴드 로그 (김프 % 기반)
+  - bb_upper, bb_middle, bb_lower 값
+  - is_upper_break (상단 돌파) 플래그
+  - 파라미터 (period, std_mult) 기록
+
+#### 신규 문서
+- **TRADINGVIEW_FX.md** - TradingView 환율 데이터 수집 명세
+  - tvDatafeed / tradingview-ta / WebSocket 방법
+  - 12시간 MA 계산 로직
+  - 환율 필터 구현 가이드
+  - 스케줄링 및 에러 처리
+
+### Changed (변경)
+
+#### positions 테이블 확장
+```sql
+-- Ver 3.0 추가 컬럼
+exit_reason VARCHAR(20)        -- 'Target' or 'Breakout'
+exit_bb_upper DECIMAL(10, 4)   -- 청산 시점 BB 상단
+entry_fx_rate DECIMAL(10, 4)   -- 진입 시점 환율
+entry_fx_ma DECIMAL(10, 4)     -- 진입 시점 환율 MA
+```
+
+#### zscore_log 테이블 확장
+```sql
+-- Ver 3.0 추가 컬럼
+zscore_5m_min DECIMAL(10, 4)   -- 5분간 최저 Z-Score
+level1_reversion BOOLEAN       -- -2.0 회귀 발생
+level2_reversion BOOLEAN       -- -2.5 회귀 발생
+```
+
+#### 신규 뷰
+- **v_position_exit_status** - 포지션 청산 조건 모니터링
+  - Track A (Target) 조건 체크
+  - Track B (Breakout) 조건 체크
+  
+- **v_fx_filter_status** - 환율 필터 현재 상태
+- **v_exit_reason_stats** - 청산 이유별 통계
+
+#### 신규 함수
+- `check_fx_surge()` - 환율 급등 체크
+- `check_bb_breakout()` - BB 상단 돌파 체크
+
+### Migration
+- Ver 2.0 → Ver 3.0 마이그레이션 SQL 제공
+- 하위 호환성 유지 (기존 데이터 보존)
+
+---
+
 ## [2.0.0] - 2025-12-12
 
 ### 🎯 핵심 변경: TradingView Webhook 환율 수집 체계 도입
@@ -32,13 +100,6 @@ Premium 계정 보유로 추가 비용 없이 고품질 FX 데이터를 실시�
   - 한국수출입은행 API (일 1회, 기준점)
   - TradingView 2분 이상 지연 시 자동 전환
 
-#### 문서
-- **TRADINGVIEW_SETUP.md** - TradingView 설정 전용 가이드
-  - Premium 계정 요구사항
-  - Alert 생성 단계별 가이드
-  - Webhook 빈도 제한 (3분당 15회)
-  - 문제 해결 가이드
-
 ### Changed (변경)
 
 #### DATA_COLLECTION.md 전면 개편
@@ -47,48 +108,6 @@ Premium 계정 보유로 추가 비용 없이 고품질 FX 데이터를 실시�
   Before: 외부 REST API (dunamu, 한국수출입은행) 단독
   After:  TradingView Webhook (주) + dunamu API (백업)
   ```
-- KimpCalculator 환율 소스 우선순위 추가
-  - 1순위: TradingView (2분 이내)
-  - 2순위: dunamu API
-  - 3순위: 한국수출입은행
-
-#### SCHEMA.md 스키마 업데이트
-- `exchange_rates` 테이블 확장
-  ```sql
-  -- 추가된 컬럼
-  open DECIMAL(20, 8)   -- TradingView 시가
-  high DECIMAL(20, 8)   -- TradingView 고가
-  low DECIMAL(20, 8)    -- TradingView 저가
-  ```
-- `kimp_rates` 테이블에 `rate_source` 컬럼 추가
-- 마이그레이션 SQL 제공 (v1.0 → v2.0)
-
-#### docker-compose.yml 업데이트
-- data-collector 포트 8000 노출 (Webhook 수신)
-- 환경변수 추가: `WEBHOOK_PORT`, `KOREAEXIM_API_KEY`
-- nginx HTTPS 프록시 옵션 추가
-
-### 디렉토리 구조 변경
-
-```
-collector/
-├── webhook/                    # 🆕 Webhook 수신
-│   ├── fx_webhook_server.py
-│   └── pine_scripts/
-│       └── usdkrw_sender.pine
-├── collectors/
-│   ├── ohlcv_collector.py
-│   ├── orderbook_collector.py
-│   └── exchange_rate_backup.py # 🆕 백업 수집기
-└── ...
-```
-
-### 비용 영향
-| 방법 | 월 비용 | 상태 |
-|------|--------|------|
-| OANDA API | $199-1,499 | ❌ 미채택 |
-| Twelve Data | $229 | ❌ 미채택 |
-| TradingView Webhook | **$0** | ✅ 채택 (Premium 구독 포함) |
 
 ---
 
@@ -100,11 +119,6 @@ collector/
 - Supabase 연동 설정
 - Docker 기반 배포 구성
 
-### 문서
-- DATA_COLLECTION.md - 데이터 수집 가이드
-- SCHEMA.md - 데이터베이스 스키마
-- DETAILED_SPEC.md - 세부 기획서
-
 ---
 
 ## [1.0.0] - 2025-12-10
@@ -113,15 +127,6 @@ collector/
 - 초기 레포지토리 생성
 - README.md 작성
 - 기본 디렉토리 구조 설정
-
----
-
-## 향후 계획 (Upcoming)
-
-### [2.1.0] - 예정
-- [ ] TimescaleDB 하이퍼테이블 적용 (P1)
-- [ ] Redis Streams 실시간 파이프라인 (P1)
-- [ ] 데이터 품질 모니터링 대시보드 (P2)
 
 ---
 
