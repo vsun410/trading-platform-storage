@@ -1,0 +1,32 @@
+# ============================================
+# 김프 데이터 수집기 의존성
+# Python 3.11+
+# ============================================
+
+# Exchange API
+ccxt>=4.0.0
+
+# TradingView FX Data (환율 수집)
+tvDatafeed>=2.1.0
+
+# Database
+supabase>=2.0.0
+
+# Scheduler
+apscheduler>=3.10.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Async
+aiohttp>=3.9.0
+
+# Configuration
+python-dotenv>=1.0.0
+
+# Logging
+loguru>=0.7.0
+
+# Telegram (선택 - 알림용)
+python-telegram-bot>=20.0
