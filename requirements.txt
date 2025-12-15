@@ -1,12 +1,12 @@
 # ============================================
-# 김프 데이터 수집기 의존성
+# Trading Platform Storage - Dependencies
 # Python 3.11+
 # ============================================
 
 # Exchange API
 ccxt>=4.0.0
 
-# TradingView FX Data (환율 수집)
+# TradingView FX Data (무료, 로그인 불필요)
 tvDatafeed>=2.1.0
 
 # Database
@@ -19,14 +19,14 @@ apscheduler>=3.10.0
 pandas>=2.0.0
 numpy>=1.24.0
 
-# Async
+# Async HTTP
 aiohttp>=3.9.0
 
-# Configuration
+# Environment
 python-dotenv>=1.0.0
 
 # Logging
 loguru>=0.7.0
 
-# Telegram (선택 - 알림용)
+# Telegram 알림 (선택)
 python-telegram-bot>=20.0
