@@ -1,18 +1,27 @@
 # ============================================
-# 김프 데이터 수집기 Docker Compose
+# Trading Platform Storage - Docker Compose
+# 김프 데이터 수집 서비스
+# ============================================
 # 
 # 사용법:
-#   docker-compose up -d --build    # 시작
-#   docker-compose logs -f          # 로그 확인
-#   docker-compose down             # 종료
+#   로컬 테스트:  docker-compose up --build
+#   백그라운드:   docker-compose up -d --build
+#   로그 확인:    docker-compose logs -f
+#   중지:         docker-compose down
+#
+# Vultr 배포:
+#   1. git clone https://github.com/vsun410/trading-platform-storage.git
+#   2. cp .env.example .env && nano .env
+#   3. docker-compose up -d --build
+#
 # ============================================
 
 version: '3.8'
 
 services:
-  # ==========================================
-  # 데이터 수집기 (메인 서비스)
-  # ==========================================
+  # ----------------------------------------
+  # 데이터 수집 서비스
+  # ----------------------------------------
   data-collector:
     build:
       context: .
@@ -24,7 +33,7 @@ services:
     env_file:
       - .env
     
-    # 로그 볼륨 (호스트에 저장)
+    # 로그 볼륨 마운트
     volumes:
       - ./logs:/app/logs
     
@@ -53,9 +62,10 @@ services:
           cpus: '0.25'
           memory: 256M
 
-# ==========================================
-# 볼륨 정의
-# ==========================================
-volumes:
-  logs:
-    driver: local
+# ============================================
+# 네트워크 설정
+# ============================================
+networks:
+  default:
+    name: kimp-network
+    driver: bridge
