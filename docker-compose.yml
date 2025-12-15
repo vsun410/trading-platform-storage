@@ -1,37 +1,61 @@
-version: "3.8"
+# ============================================
+# 김프 데이터 수집기 Docker Compose
+# 
+# 사용법:
+#   docker-compose up -d --build    # 시작
+#   docker-compose logs -f          # 로그 확인
+#   docker-compose down             # 종료
+# ============================================
+
+version: '3.8'
 
 services:
-  # Supabase 로컬 개발은 supabase CLI 사용 권장
-  # 아래는 참고용 구성
-  
-  postgres:
-    image: postgres:15-alpine
-    container_name: trading-postgres
+  # ==========================================
+  # 데이터 수집기 (메인 서비스)
+  # ==========================================
+  data-collector:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kimp-data-collector
     restart: unless-stopped
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: trading
+    
+    # 환경 변수
+    env_file:
+      - .env
+    
+    # 로그 볼륨 (호스트에 저장)
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./supabase/migrations:/docker-entrypoint-initdb.d
+      - ./logs:/app/logs
+    
+    # 로깅 설정
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    
+    # 헬스체크
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # 리소스 제한 (Vultr $5 플랜 기준)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
+# ==========================================
+# 볼륨 정의
+# ==========================================
 volumes:
-  postgres_data:
-
-# 실제 사용시:
-# 1. supabase CLI 설치: brew install supabase/tap/supabase
-# 2. supabase init
-# 3. supabase start
-# 
-# 로컬 Supabase 접속 정보:
-# - PostgreSQL: localhost:54322
-# - Studio: localhost:54323
-# - API: localhost:54321
+  logs:
+    driver: local
